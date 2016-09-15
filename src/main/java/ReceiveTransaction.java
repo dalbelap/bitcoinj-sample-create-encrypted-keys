@@ -1,25 +1,24 @@
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import domain.WalletEntity;
-import org.bitcoinj.core.*;
-import org.bitcoinj.crypto.DeterministicKey;
+import org.bitcoinj.core.Address;
+import org.bitcoinj.core.Coin;
+import org.bitcoinj.core.NetworkParameters;
+import org.bitcoinj.core.TransactionConfidence;
 import org.bitcoinj.kits.WalletAppKit;
 import org.bitcoinj.params.RegTestParams;
-import org.bitcoinj.script.Script;
 import org.bitcoinj.store.BlockStoreException;
-import org.bitcoinj.store.UnreadableWalletException;
-import org.bitcoinj.testing.KeyChainTransactionSigner;
 import org.bitcoinj.utils.BriefLogFormatter;
 import org.bitcoinj.wallet.DeterministicKeyChain;
 import org.bitcoinj.wallet.MarriedKeyChain;
+import org.bitcoinj.wallet.UnreadableWalletException;
+import org.bitcoinj.wallet.Wallet;
 import utils.FileUtils;
 import utils.JsonConverter;
 
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.security.SecureRandom;
-import java.util.List;
 import java.util.Scanner;
 
 /**
@@ -45,8 +44,7 @@ public class ReceiveTransaction {
                 readFile(CreateHDKeys.WALLET_JSON, StandardCharsets.UTF_8));
 
         Wallet wallet = Wallet.loadFromFile(new File("wallets/" + CreateMarriedWallet.WALLET_FILENAME + ".wallet"));
-        MarriedKeyChain chain1 = (MarriedKeyChain) wallet.getActiveKeychain();
-        // Print info
+        MarriedKeyChain chain1 = (MarriedKeyChain) wallet.getActiveKeyChain();
         System.out.println("TO STRING WITH PRIV:\n " + chain1.toString(true, params));
 
 
@@ -59,91 +57,43 @@ public class ReceiveTransaction {
             kit.connectToLocalHost();
         }
 
-        // TODO error kit.wallet() no se puede llamar hasta que se haga start()
-
         // Download the block chain and wait until it's done.
         kit.startAsync();
-        // TODO error nullpointer exception para kit.wallet().getActiveKeychain()
         kit.awaitRunning();
 
-        // TODO ver porque la married cambia las Following Chain si existe y después de ejecutarse el startAsync
-        System.out.println("TO STRING WITH PRIV:\n " + kit.wallet().getActiveKeychain().toString(true, params));
+        kit.wallet().addCoinsReceivedEventListener((wallet1, tx, prevBalance, newBalance) -> {
+            // Runs in the dedicated "user thread".
+            Coin value = tx.getValueSentToMe(wallet1);
+            System.out.println("-----> coins resceived: " + tx.getHashAsString());
+            System.out.println("received: " + tx.getValue(wallet1));
 
-        /* create wallet with 2 signers by default */
-        //createMarriedWallet(walletEntity, kit.wallet());
+            System.out.println("Received tx for " + value.toFriendlyString() + ": " + tx);
+            System.out.println("Transaction will be forwarded after it confirms.");
+            // Wait until it's made it into the block chain (may run immediately if it's already there).
+            //
+            // For this dummy app of course, we could just forward the unconfirmed transaction. If it were
+            // to be double spent, no harm done. Wallet.allowSpendingUnconfirmedTransactions() would have to
+            // be called in onSetupCompleted() above. But we don't do that here to demonstrate the more common
+            // case of waiting for a block.
+            Futures.addCallback(tx.getConfidence().getDepthFuture(1), new FutureCallback<TransactionConfidence>() {
+                @Override
+                public void onSuccess(TransactionConfidence result) {
+                    System.out.println("Confirmed: " + tx);
+                }
 
-
-        // TODO despúes de sincronizar las "Following chain" (las direcciones de user y backup) cambian!! Pero las multisig se mantienen igual...
-        // Si volvemos a ejecutar: se mantienen las nuevas "Following Chain"
-
-        kit.wallet().addEventListener(new AbstractWalletEventListener() {
-            @Override
-            public void onCoinsReceived(Wallet w, Transaction tx, Coin prevBalance, Coin newBalance) {
-                // Runs in the dedicated "user thread".
-                Coin value = tx.getValueSentToMe(w);
-                System.out.println("-----> coins resceived: " + tx.getHashAsString());
-                System.out.println("received: " + tx.getValue(w));
-
-                System.out.println("Received tx for " + value.toFriendlyString() + ": " + tx);
-                System.out.println("Transaction will be forwarded after it confirms.");
-                // Wait until it's made it into the block chain (may run immediately if it's already there).
-                //
-                // For this dummy app of course, we could just forward the unconfirmed transaction. If it were
-                // to be double spent, no harm done. Wallet.allowSpendingUnconfirmedTransactions() would have to
-                // be called in onSetupCompleted() above. But we don't do that here to demonstrate the more common
-                // case of waiting for a block.
-                Futures.addCallback(tx.getConfidence().getDepthFuture(1), new FutureCallback<TransactionConfidence>() {
-                    @Override
-                    public void onSuccess(TransactionConfidence result) {
-                        System.out.println("Confirmed: " + tx);
-                    }
-
-                    @Override
-                    public void onFailure(Throwable t) {
-                        // This kind of future can't fail, just rethrow in case something weird happens.
-                        throw new RuntimeException(t);
-                    }
-                });
-            }
-
-            @Override
-            public void onTransactionConfidenceChanged(Wallet wallet, Transaction tx) {
-                System.out.println("-----> confidence changed: " + tx.getHashAsString());
-                TransactionConfidence confidence = tx.getConfidence();
-                System.out.println("new block depth: " + confidence.getDepthInBlocks());
-            }
-
-            @Override
-            public void onCoinsSent(Wallet wallet, Transaction tx, Coin prevBalance, Coin newBalance) {
-                Coin value = tx.getValueSentToMe(wallet);
-                System.out.println("coins sent from wallet " + wallet.getDescription() + " from value " + value.toFriendlyString());
-            }
-
-            @Override
-            public void onReorganize(Wallet wallet) {
-                System.out.println("Wallet " + wallet.getDescription() + " was reorganizated");
-            }
-
-            @Override
-            public void onWalletChanged(Wallet wallet) {
-                System.out.println("Wallet " + wallet.getDescription() + " has changed");
-            }
-
-            @Override
-            public void onKeysAdded(List<ECKey> keys) {
-                System.out.println("new key added");
-            }
-
-            @Override
-            public void onScriptsChanged(Wallet wallet, List<Script> scripts, boolean isAddingScripts) {
-                System.out.println("new script added");
-            }
+                @Override
+                public void onFailure(Throwable t) {
+                    // This kind of future can't fail, just rethrow in case something weird happens.
+                    throw new RuntimeException(t);
+                }
+            });
         });
 
-
-        // To observe wallet events (like coins received) we implement a EventListener class that extends the AbstractWalletEventListener bitcoinj then calls the different functions from the EventListener class
-        //WalletListener wListener = new WalletListener();
-        //kit.wallet().addEventListener(wListener);
+        kit.wallet().addTransactionConfidenceEventListener((wallet1, tx) -> {
+            System.out.println("-----> confidence changed: " + tx.getHashAsString());
+            TransactionConfidence confidence = tx.getConfidence();
+            System.out.println("new block depth: " + confidence.getDepthInBlocks());
+        });
 
         // Ready to run. The kit syncs the blockchain and our wallet event listener gets notified when something happens.
         // To test everything we create and print a fresh receiving address. Send some coins to that address and see if everything works.
@@ -154,43 +104,14 @@ public class ReceiveTransaction {
         System.out.println("is multisig: " + sendToAddress.isP2SHAddress());
         System.out.println("Wallet is encrypted?: " + kit.wallet().isEncrypted());
 
-        for(;;){ // avoids while true check
-            // Show menu
+        for(;;){
             menu();
         }
-/*
-        System.out.println("Waiting for coins to arrive. Press Ctrl-C to quit.");
-
-        try {
-            Thread.sleep(Long.MAX_VALUE);
-        } catch (InterruptedException ignored) {}
-*/
     }
 
     /**
-     * Create a married wallet 3-of-2 multisig
-     * @param walletEntityEntity
-     * @param wallet
+     * Show a cli menu
      */
-    private static void createMarriedWallet(WalletEntity walletEntityEntity, Wallet wallet) {
-        final DeterministicKey partnerKey = DeterministicKey.deserialize(params, walletEntityEntity.getKey().getPub());
-
-        // add addSigners from user key
-        DeterministicKeyChain keyChain1 = new DeterministicKeyChain(partnerKey, walletEntityEntity.getKey().getCreated());
-        wallet.addTransactionSigner(new KeyChainTransactionSigner(keyChain1));
-
-        final DeterministicKey backupKey = DeterministicKey.deserialize(params, walletEntityEntity.getBackup().getPub());
-
-        /* married wallet HDM */
-        MarriedKeyChain chain = MarriedKeyChain.builder()
-                .random(new SecureRandom(), CreateMarriedWallet.ENTROPY_BITS)
-                .followingKeys(partnerKey, backupKey)
-                .build();
-
-        // Wallet activate married key chain
-        wallet.addAndActivateHDChain(chain);
-    }
-
     public static void menu() {
 
         int selection;
@@ -210,7 +131,7 @@ public class ReceiveTransaction {
         selection = input.nextInt();
         switch (selection) {
             case 1:
-                DeterministicKeyChain chain = kit.wallet().getActiveKeychain();
+                DeterministicKeyChain chain = kit.wallet().getActiveKeyChain();
                 System.out.println("Is Following: " + chain.isFollowing());
                 System.out.println("Is Married: " + chain.isMarried());
                 System.out.println("Is Watching: " + chain.isWatching());

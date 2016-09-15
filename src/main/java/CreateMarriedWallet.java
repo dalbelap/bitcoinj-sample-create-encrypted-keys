@@ -1,16 +1,18 @@
 import com.google.common.collect.Lists;
-import org.bitcoinj.core.*;
+import org.bitcoinj.core.Context;
+import org.bitcoinj.core.NetworkParameters;
 import org.bitcoinj.crypto.DeterministicKey;
 import org.bitcoinj.params.RegTestParams;
 import org.bitcoinj.store.BlockStoreException;
-import org.bitcoinj.store.UnreadableWalletException;
-import org.bitcoinj.testing.KeyChainTransactionSigner;
+import org.bitcoinj.wallet.UnreadableWalletException;
 import org.bitcoinj.utils.BriefLogFormatter;
 import org.bitcoinj.wallet.DeterministicKeyChain;
 import org.bitcoinj.wallet.DeterministicSeed;
 import org.bitcoinj.wallet.MarriedKeyChain;
+import org.bitcoinj.wallet.Wallet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import utils.KeyChainTransactionSigner;
 
 import java.io.File;
 import java.io.IOException;
@@ -43,7 +45,6 @@ public class CreateMarriedWallet {
     public static void setUp() throws Exception {
         BriefLogFormatter.init();
         params = RegTestParams.get();
-        Wallet.SendRequest.DEFAULT_FEE_PER_KB = Coin.ZERO;
         ctx = new Context(params);
         wallet = new Wallet(ctx);
     }
@@ -95,7 +96,7 @@ public class CreateMarriedWallet {
     }
 
     /**
-     * Create a Wallet with a given seed, threshold and number of keys
+     * Creates a Wallet with a given seed, threshold and number of keys
      *
      *
      * @return
@@ -123,7 +124,7 @@ public class CreateMarriedWallet {
     }
 
     /**
-     * Create a Wallet with a given seed, threshold and number of keys
+     * Creates a Wallet with a given seed, threshold and number of keys
      *
      * @return
      */
@@ -157,7 +158,7 @@ public class CreateMarriedWallet {
      * @param wallet
      */
     private static void printInfo(Wallet wallet) {
-        MarriedKeyChain chain = (MarriedKeyChain) wallet.getActiveKeychain();
+        MarriedKeyChain chain = (MarriedKeyChain) wallet.getActiveKeyChain();
 
         log.info("Is Following: {}", chain.isFollowing());
         log.info("Is Married: {}", chain.isMarried());

@@ -14,7 +14,7 @@ public class AESCBCUtils{
     private static final String CIPHER = "AES";
     private static final String BLOCK_MODE = "CBC";
 
-    public static EncryptedData encrypt(byte[] textPlain, String password, long iter) {
+    public static EncryptedData encrypt(byte[] textPlain, CharSequence password, long iter) {
 
         checkNotNull(textPlain);
         checkNotNull(password);
@@ -42,7 +42,7 @@ public class AESCBCUtils{
 
     }
 
-    public static byte[] decrypt(EncryptedData encryptedData, String password) {
+    public static byte[] decrypt(EncryptedData encryptedData, CharSequence password) {
 
         checkNotNull(encryptedData.getIter());
         checkNotNull(encryptedData.getData());

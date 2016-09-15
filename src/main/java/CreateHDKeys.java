@@ -29,7 +29,7 @@ public class CreateHDKeys {
 
     private static final Logger log = LoggerFactory.getLogger(CreateHDKeys.class);
 
-    public static final long ITERATIONS = 4096;
+    public static final long ITERATIONS = 16384;
     public static final int ENTROPY_BITS = 256;
     public static final String WALLET_NAME = "Wallet User Name";
     public static final String USER_PASSWORD = "USER PASSWORD. Use strong passphrases!!!";
@@ -90,7 +90,7 @@ public class CreateHDKeys {
         //secureRandom.nextBytes(bytes);
 
         /* create user key */
-        // NOTE: This do not work in Android. Android needs MnemonicCode.INSTANCE = new MnemonicCode();
+        // NOTE: This does not work in Android. Android needs MnemonicCode.INSTANCE = new MnemonicCode();
         DeterministicKeyChain chain = new DeterministicKeyChain(secureRandom, ENTROPY_BITS, password, Calendar.getInstance().getTimeInMillis()/100);
         //DeterministicKeyChain chain = new DeterministicKeyChain(secureRandom, ENTROPY_BITS);
 

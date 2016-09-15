@@ -3,16 +3,16 @@ package utils;
 import org.bitcoinj.core.BlockChain;
 import org.bitcoinj.core.NetworkParameters;
 import org.bitcoinj.core.PeerGroup;
-import org.bitcoinj.core.Wallet;
 import org.bitcoinj.params.RegTestParams;
 import org.bitcoinj.store.BlockStore;
 import org.bitcoinj.store.BlockStoreException;
 import org.bitcoinj.store.SPVBlockStore;
+import org.bitcoinj.wallet.Wallet;
 
 import java.io.IOException;
 
 /**
- * Created by david on 14/07/15.
+ * Creates a PeerGroup with BlockStore file
  */
 public class PeerGroupBuilder {
 
@@ -37,8 +37,6 @@ public class PeerGroupBuilder {
             /* create blockchain instance with blockstore */
             chain = new BlockChain(params, wallet, blockStore);
         }
-
-
 
         /* create peer group to download the blockchain */
         PeerGroup peerGroup = new PeerGroup(params, chain);
